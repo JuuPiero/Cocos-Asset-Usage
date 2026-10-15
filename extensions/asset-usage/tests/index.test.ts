@@ -5,7 +5,8 @@ import { assetsFromDisk, nodeFs, settingsRoots } from '../source/core/node-fs';
 import { scanMeta, scanScript, scanSerialized, stripComments } from '../source/core/parse';
 import { compressUuid, splitUuid } from '../source/core/uuid';
 import { Edge, UsageIndex } from '../source/core/usage-index';
-import { makeFixture, PLAYER_SOURCE, U } from './fixture';
+import { makeFixture } from './fixture-disk';
+import { PLAYER_SOURCE, U } from './fixture-files';
 import { section, test } from './harness';
 
 section('uuid');
@@ -155,6 +156,20 @@ test('component names', () => {
     assert.strictEqual(index.componentName('cc.Sprite'), 'Sprite');
     assert.strictEqual(index.componentName(compressUuid(U.player)), 'Player');
     assert.strictEqual(index.componentName('Import Settings'), 'Import Settings');
+});
+
+const realProject = 'E:/Workspace/cocos/AdvanceInspector';
+test('a real project: scene uses the demo script and the image', async () => {
+    if (!existsSync(join(realProject, 'assets'))) return;
+    const idx = new UsageIndex();
+    await idx.build(await assetsFromDisk(realProject), nodeFs, { extras: await settingsRoots(realProject) });
+    const scene = [...idx.assets.values()].find((a) => a.url === 'db://assets/scene.scene')!;
+    const demo = [...idx.assets.values()].find((a) => a.url === 'db://assets/AdvancedInspectorDemo.ts')!;
+    const image = [...idx.assets.values()].find((a) => a.importer === 'image')!;
+    assert.deepStrictEqual(idx.usersOf(demo.uuid).map((e) => e.user), [scene.uuid]);
+    assert.deepStrictEqual(idx.usersOf(image.uuid).map((e) => e.user), [scene.uuid]);
+    assert.strictEqual(idx.usersOf(image.uuid)[0].locations[0].property, 'icon');
+    assert.deepStrictEqual(idx.unused(), []);
 });
 
 section('cache');

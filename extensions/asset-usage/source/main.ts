@@ -1,27 +1,46 @@
-// @ts-ignore
-import packageJSON from '../package.json';
 /**
- * @en Registration method for the main process of Extension
- * @zh 为扩展的主进程的注册方法
+ * Main process: opens the Asset Usage panel and hands it a request from the
+ * Assets / Hierarchy context menus (kept until the panel is ready).
  */
-export const methods: { [key: string]: (...any: any) => any } = {
-    /**
-     * @en A method that can be triggered by message
-     * @zh 通过 message 触发的方法
-     */
+import type { PanelRequest } from './shared';
+
+const PACKAGE = 'asset-usage';
+
+let pending: PanelRequest | null = null;
+
+async function show(request: PanelRequest) {
+    pending = request;
+    await Editor.Panel.open(PACKAGE);
+    // An open panel takes it now; a new one asks for it when ready.
+    Editor.Message.send(PACKAGE, 'panel-request', request);
+}
+
+export const methods: Record<string, (...args: any[]) => any> = {
     openPanel() {
-        Editor.Panel.open(packageJSON.name);
+        Editor.Panel.open(PACKAGE);
+    },
+    findReferences(uuid: string) {
+        if (uuid) show({ mode: 'references', uuid });
+    },
+    showDependencies(uuid: string) {
+        if (uuid) show({ mode: 'dependencies', uuid });
+    },
+    findUnused() {
+        show({ mode: 'unused' });
+    },
+    findMissing() {
+        show({ mode: 'missing' });
+    },
+    findInScene(nodeUuid: string) {
+        if (nodeUuid) show({ mode: 'scene', uuid: nodeUuid });
+    },
+    takePending(): PanelRequest | null {
+        const r = pending;
+        pending = null;
+        return r;
     },
 };
 
-/**
- * @en Method Triggered on Extension Startup
- * @zh 扩展启动时触发的方法
- */
-export function load() { }
+export function load() {}
 
-/**
- * @en Method triggered when uninstalling the extension
- * @zh 卸载扩展时触发的方法
- */
-export function unload() { }
+export function unload() {}

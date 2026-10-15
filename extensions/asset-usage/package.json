@@ -3,49 +3,54 @@
     "package_version": 2,
     "name": "asset-usage",
     "version": "1.0.0",
-    "author": "Cocos Creator",
+    "author": "Thanh Hoang",
     "editor": ">=3.8.6",
     "scripts": {
         "preinstall": "node ./scripts/preinstall.js",
-        "build": "npx tsc"
+        "build": "tsc && node ./scripts/build.js",
+        "watch": "node ./scripts/build.js --watch",
+        "typecheck": "tsc",
+        "test": "node ./tests/run.js",
+        "preview": "node ./tests/preview/build.js"
     },
     "description": "i18n:asset-usage.description",
     "main": "./dist/main.js",
-    "dependencies": {
-        "fs-extra": "^10.0.0",
-        "vue": "^3.1.4"
-    },
     "devDependencies": {
         "@cocos/creator-types": "^3.8.6",
-        "@types/fs-extra": "^9.0.5",
         "@types/node": "^18.17.1",
         "esbuild": "^0.24.2",
-        "typescript": "^5.8.2"
+        "typescript": "^5.8.2",
+        "vue": "^3.3.4"
     },
     "panels": {
         "default": {
-            "title": "asset-usage Default Panel",
+            "title": "Asset Usage",
             "type": "dockable",
             "main": "dist/panels/default",
             "size": {
-                "min-width": 400,
-                "min-height": 300,
-                "width": 1024,
-                "height": 600
+                "min-width": 420,
+                "min-height": 240,
+                "width": 760,
+                "height": 520
             }
         }
     },
     "contributions": {
         "menu": [
             {
-                "path": "i18n:menu.panel/asset-usage",
+                "path": "i18n:menu.panel",
                 "label": "i18n:asset-usage.open_panel",
                 "message": "open-panel"
             },
             {
-                "path": "i18n:menu.develop/asset-usage",
-                "label": "i18n:asset-usage.send_to_panel",
-                "message": "send-to-panel"
+                "path": "i18n:menu.extension/Asset Usage",
+                "label": "i18n:asset-usage.find_unused",
+                "message": "find-unused"
+            },
+            {
+                "path": "i18n:menu.extension/Asset Usage",
+                "label": "i18n:asset-usage.find_missing",
+                "message": "find-missing"
             }
         ],
         "messages": {
@@ -54,11 +59,76 @@
                     "openPanel"
                 ]
             },
-            "send-to-panel": {
+            "find-references": {
                 "methods": [
-                    "default.hello"
+                    "findReferences"
+                ]
+            },
+            "show-dependencies": {
+                "methods": [
+                    "showDependencies"
+                ]
+            },
+            "find-unused": {
+                "methods": [
+                    "findUnused"
+                ]
+            },
+            "find-missing": {
+                "methods": [
+                    "findMissing"
+                ]
+            },
+            "find-in-scene": {
+                "methods": [
+                    "findInScene"
+                ]
+            },
+            "take-pending": {
+                "methods": [
+                    "takePending"
+                ]
+            },
+            "panel-request": {
+                "methods": [
+                    "default.onRequest"
+                ]
+            },
+            "selection:select": {
+                "methods": [
+                    "default.onSelect"
+                ]
+            },
+            "asset-db:asset-add": {
+                "methods": [
+                    "default.onAssetsChanged"
+                ]
+            },
+            "asset-db:asset-change": {
+                "methods": [
+                    "default.onAssetsChanged"
+                ]
+            },
+            "asset-db:asset-delete": {
+                "methods": [
+                    "default.onAssetsChanged"
                 ]
             }
+        },
+        "assets": {
+            "menu": {
+                "methods": "./dist/assets-menu.js",
+                "assetMenu": "onAssetMenu"
+            }
+        },
+        "hierarchy": {
+            "menu": {
+                "methods": "./dist/hierarchy-menu.js",
+                "nodeMenu": "onNodeMenu"
+            }
+        },
+        "scene": {
+            "script": "./dist/scene.js"
         }
     }
 }

@@ -1,0 +1,99 @@
+<div class="au">
+    <header class="au-toolbar">
+        <button class="au-icon" :disabled="!state.history.length" title="Back" @click="store.back()">&#x2039;</button>
+        <button class="au-icon" :disabled="!state.future.length" title="Forward" @click="store.forward()">&#x203A;</button>
+        <nav class="au-tabs">
+            <button v-for="t in tabs" :key="t.id" :class="['au-tab', { active: state.mode === t.id }]" :title="t.title" @click="goTab(t.id)">
+                {{ t.label }}<span v-if="t.count" class="au-tab-count">{{ t.count }}</span>
+            </button>
+        </nav>
+        <div class="au-spacer"></div>
+        <input class="au-search" v-model="state.filter" placeholder="Filter" spellcheck="false">
+        <button class="au-btn" :disabled="state.status === 'scanning'" title="Read every asset again (ignores the cache)" @click="store.build(true)">Rescan</button>
+    </header>
+
+    <section v-if="state.mode === 'references' || state.mode === 'dependencies'" class="au-bar">
+        <template v-if="targetRow">
+            <asset-icon :row="targetRow"></asset-icon>
+            <div class="au-target" :title="targetRow.url">
+                <div class="au-target-name">{{ targetRow.name }}<span v-if="targetRow.note" class="au-target-sub"> &#x203A; {{ targetRow.note }}</span></div>
+                <div class="au-dim">{{ targetRow.folder }}</div>
+            </div>
+            <button class="au-mini" title="Show in the Assets panel" @click="store.selectAsset(targetRow)">Locate</button>
+        </template>
+        <div v-else class="au-dim au-hint">Right-click an asset in the Assets panel &#x203A; Find References, or select one and press Use Selection.</div>
+        <div class="au-spacer"></div>
+        <label class="au-check" title="Follow the Assets panel selection"><input type="checkbox" v-model="state.followSelection"> Follow Selection</label>
+        <button class="au-btn" @click="store.useSelection()">Use Selection</button>
+    </section>
+
+    <section v-else-if="state.mode === 'scene'" class="au-bar">
+        <span class="au-badge k-node">NOD</span>
+        <div class="au-target">
+            <div class="au-target-name">{{ sceneTitle || 'No node' }}</div>
+            <div class="au-dim">Components in the open scene that point at this node or its components</div>
+        </div>
+        <div class="au-spacer"></div>
+        <label class="au-check" title="Follow the Hierarchy selection"><input type="checkbox" v-model="state.followSelection"> Follow Selection</label>
+        <button class="au-btn" @click="store.useSelection()">Use Selection</button>
+        <button class="au-btn" :disabled="!state.scene.uuid" @click="store.runScene(state.scene.uuid)">Refresh</button>
+    </section>
+
+    <section v-else-if="state.mode === 'unused'" class="au-bar">
+        <div class="au-chips">
+            <button v-for="f in filters" :key="f.id" :class="['au-chip', { active: state.unusedFilter === f.id }]" @click="state.unusedFilter = f.id">{{ f.label }}</button>
+        </div>
+        <div class="au-spacer"></div>
+        <label class="au-check"><input type="checkbox" :checked="allChecked" @change="store.checkAll($event.target.checked)"> Select All</label>
+        <button class="au-btn danger" :disabled="!checkedRows.length" @click="store.deleteChecked()">Delete Selected<span v-if="checkedRows.length"> ({{ checkedRows.length }})</span></button>
+    </section>
+
+    <main v-if="state.mode !== 'scene'" class="au-list">
+        <div v-if="!rows.length" class="au-empty">{{ emptyText }}</div>
+        <div v-for="row in rows" :key="row.key" class="au-group">
+            <div :class="['au-row', { missing: row.missing }]" :title="row.url" @click="store.selectAsset(row)" @dblclick="store.openAsset(row)">
+                <span :class="['au-arrow', { open: store.isExpanded(row), none: !row.locations.length }]" @click.stop="store.toggle(row)"></span>
+                <input v-if="state.mode === 'unused'" class="au-row-check" type="checkbox" :checked="!!state.checked[row.key]" @click.stop @change="store.setChecked(row, $event.target.checked)">
+                <asset-icon :row="row"></asset-icon>
+                <span class="au-name">{{ row.name }}</span>
+                <span v-if="row.note" class="au-note">{{ row.note }}</span>
+                <span class="au-folder">{{ row.folder }}</span>
+                <span v-if="state.mode === 'unused'" class="au-size">{{ formatSize(row.size) }}</span>
+                <span v-else-if="row.locations.length" class="au-count">{{ row.locations.length }}</span>
+                <span v-if="!row.missing && !row.settings" class="au-actions">
+                    <button class="au-mini" title="Find what uses this asset" @click.stop="store.navigate({ mode: 'references', uuid: row.uuid })">Refs</button>
+                    <button class="au-mini" title="Show what this asset uses" @click.stop="store.navigate({ mode: 'dependencies', uuid: row.uuid })">Deps</button>
+                </span>
+            </div>
+            <div v-if="row.locations.length && store.isExpanded(row)" class="au-locs">
+                <div v-for="loc in row.locations" :key="loc.key" class="au-loc" :title="row.importer === 'scene' && loc.nodeId ? 'Select this node (opens the scene)' : ''" @click="store.goToLocation(row, loc)">
+                    <span v-if="loc.via === 'code'" class="au-tag code" title="A string in code that matches the asset's load path">code</span>
+                    <span v-else-if="loc.via === 'import'" class="au-tag">import</span>
+                    <span v-if="loc.node" class="au-node">{{ loc.node }}</span>
+                    <span v-if="loc.component" class="au-comp">{{ loc.component }}</span>
+                    <span class="au-prop">{{ loc.property }}</span>
+                    <span v-if="loc.sub" class="au-tag">{{ loc.sub }}</span>
+                    <span v-if="loc.missing" class="au-missing">&#x2192; missing {{ loc.missing }}</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <main v-else class="au-list">
+        <div v-if="!state.scene.uuid" class="au-empty">Right-click a node in the Hierarchy &#x203A; Find References In Scene, or select one and press Use Selection.</div>
+        <div v-else-if="!state.scene.loading && !sceneRows.length && !state.scene.result?.error" class="au-empty">Nothing in the open scene points at this node.</div>
+        <div v-for="r in sceneRows" :key="r.key" class="au-loc au-scene-row" title="Select this node" @click="store.selectSceneNode(r)">
+            <span class="au-node">{{ r.node || '(root)' }}</span>
+            <span class="au-comp">{{ r.component }}</span>
+            <span class="au-prop">{{ r.property }}</span>
+            <span class="au-tag">{{ r.points }}</span>
+        </div>
+    </main>
+
+    <footer class="au-status">
+        <span>{{ summary }}</span>
+        <div class="au-spacer"></div>
+        <div v-if="state.status === 'scanning' && state.progress.total" class="au-progress"><div :style="{ width: (state.progress.done / state.progress.total * 100) + '%' }"></div></div>
+        <span :class="{ 'au-error': state.status === 'error' }">{{ statusText }}</span>
+    </footer>
+</div>

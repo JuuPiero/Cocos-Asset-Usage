@@ -1,12 +1,10 @@
 /**
- * Writes a small Cocos-style project into a temp folder: scene, prefabs (one
- * nested with an override), material, effect, animations, a TexturePacker
- * atlas, scripts with imports and resources.load strings, resources and an
- * Asset Bundle, project settings, plus unused assets and broken references.
+ * A small Cocos-style project: scene, prefabs (one nested with an override),
+ * material, effect, animations, a TexturePacker atlas, scripts with imports
+ * and resources.load strings, resources and an Asset Bundle, project
+ * settings, plus unused assets and broken references. Pure data, so the
+ * browser preview can use it too (tests/fixture-disk.ts writes it out).
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
-import { tmpdir } from 'os';
-import { dirname, join } from 'path';
 import { compressUuid } from '../source/core/uuid';
 
 export const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`;
@@ -129,19 +127,15 @@ function mainScene() {
     ];
 }
 
-export function makeFixture(): string {
-    const root = mkdtempSync(join(tmpdir(), 'asset-usage-fixture-'));
+/** The fixture project as relative path -> content (folders are implied by their files). */
+export function fixtureFiles(): Record<string, string> {
+    const files: Record<string, string> = {};
     const write = (rel: string, content: string | object) => {
-        const file = join(root, rel);
-        mkdirSync(dirname(file), { recursive: true });
-        writeFileSync(file, typeof content === 'string' ? content : JSON.stringify(content, null, 2));
+        files[rel] = typeof content === 'string' ? content : JSON.stringify(content, null, 2);
     };
     const meta = (rel: string, uuid: string, importer: string, extra: Record<string, unknown> = {}) =>
         write(`${rel}.meta`, { ver: '1.0.0', importer, imported: true, uuid, files: [], subMetas: {}, userData: {}, ...extra });
-    const dir = (rel: string, uuid: string, userData: Record<string, unknown> = {}) => {
-        mkdirSync(join(root, rel), { recursive: true });
-        meta(rel, uuid, 'directory', { userData });
-    };
+    const dir = (rel: string, uuid: string, userData: Record<string, unknown> = {}) => meta(rel, uuid, 'directory', { userData });
     const png = (rel: string, uuid: string) => {
         write(rel, 'PNG');
         write(`${rel}.meta`, imageMeta(uuid));
@@ -217,5 +211,5 @@ export function makeFixture(): string {
     meta('assets/anim/Old.anim', U.oldAnim, 'animation-clip');
 
     write('settings/v2/packages/project.json', { __version__: '1.0.6', splash: { image: U.splash }, general: { designResolution: { width: 960 } } });
-    return root;
+    return files;
 }
